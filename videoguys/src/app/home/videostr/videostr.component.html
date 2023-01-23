@@ -1,0 +1,12 @@
+<video #videoRemote width="640" height="480" [autoplay] = "true" [muted]="false"></video>
+<div class="row">
+  <div class="col-md-12">
+    <video #videoLocal width="640" height="480" [autoplay] = "true" [muted]="true"></video>
+    <div class="row">
+      <div class="col-md-12 m-2">
+        <input type="button" class="btn btn-secondary" value="Pause" (click)="pauseLocalStream()">
+        <input type="button" class="btn btn-secondary" value="Play" (click)="startLocalStream()">
+      </div>
+    </div>
+  </div>
+</div>
