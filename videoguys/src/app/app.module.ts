@@ -15,11 +15,13 @@ const firebaseConfig = {
   storageBucket: "video-chat-d1610.appspot.com",
   messagingSenderId: "62538030890",
   appId: "1:62538030890:web:aa69f0e0d7c64e7e1a8853",
-  measurementId: "G-F8KYHRH1L3"
+  measurementId: "G-F8KYHRH1L3",
+  databaseURL: "ws://video-chat-d1610-default-rtdb.firebaseio.com"
 };
 
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
+
 @NgModule({
   declarations: [
     AppComponent

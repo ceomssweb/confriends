@@ -1,7 +1,10 @@
 import { AfterViewInit, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { environment } from 'src/environments/environment';
 import { DataService } from './service/data.service';
 import { Message } from './types/message';
 
+
+export const ENV_RTCPeerConfiguration = environment.RTCPeerConfiguration;
 
 const mediaConstraints = {
   audio: true,
@@ -21,6 +24,9 @@ const offerOptions = {
 export class VideostrComponent implements OnInit, AfterViewInit {
 
   private localStream: MediaStream | any;
+  inCall = false;
+  localVideoActive = false;
+
   @ViewChild('videoLocal') localVideo:any;
   @ViewChild('videoRemote') localRemote:any;
 
@@ -33,53 +39,59 @@ export class VideostrComponent implements OnInit, AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    this.addIncommingMessageHandler();
+    this.addIncomingMessageHandler();
     this.requestMediaDevices();
   }
 
   private async requestMediaDevices(): Promise<void> {
-    this.localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints)
-    this.localVideo.nativeElement.srcObject = this.localStream;
+     this.localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+     this.localVideo.nativeElement.srcObject = this.localStream;
+
+    // try {
+    //   this.localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+    //   // pause all tracks
+    //   this.pauseLocalStream();
+    // } catch (e: any) {
+    //   //console.error(e);
+    //   alert(`getUserMedia() error: ${e.name}`);
+    // }
   }
 
   pauseLocalStream(): void{
-    this.localStream.getTracks().forEach((track:any) => {
+    console.log('pause local stream');
+    this.localStream.getTracks().forEach(track => {
       track.enabled = false;
     });
-    this.localStream.nativeElement.srcObject = undefined;
+    this.localVideo.nativeElement.srcObject = undefined;
+    this.localVideoActive = false;
   }
 
   startLocalStream(): void{
-    this.localStream.getTracks().forEach((track:any) => {
+    console.log('starting local stream');
+    this.localStream.getTracks().forEach(track => {
       track.enabled = true;
     });
-    this.localStream.nativeElement.srcObject = this.localStream;
+    this.localVideo.nativeElement.srcObject = this.localStream;
+    this.localVideoActive = true;
   }
 
   async call(): Promise<void> {
     this.createPeerConnection();
-
     this.localStream.getTracks().forEach(
-      (track:any) => this.peerConnection.addTrack(track, this.localStream
-    ));
+      track => this.peerConnection.addTrack(track, this.localStream));
 
     try {
       const offer: RTCSessionDescriptionInit = await this.peerConnection.createOffer(offerOptions);
       await this.peerConnection.setLocalDescription(offer);
+      this.inCall = true;
       this.dataservice.sendMessage({type: 'offer', data: offer});
     } catch(err: any) {
       this.handleGetUserMediaError(err);
     }
   }
 
-  private createPeerConnection(): any{
-    this.peerConnection = new RTCPeerConnection({
-      iceServers: [
-        {
-          urls: ['stun:stun.kundenserver.de:3478']
-        }
-      ]
-    });
+  private createPeerConnection(): void{
+    this.peerConnection = new RTCPeerConnection(ENV_RTCPeerConfiguration);
     this.peerConnection.onicecandidate = this.handleIceCandidateEvent;
     this.peerConnection.onicegatheringstatechange = this.handleIceConnectionStateChangeEvent;
     this.peerConnection.onsignalingstatechange = this.handleSignalingStateEvent;
@@ -87,23 +99,25 @@ export class VideostrComponent implements OnInit, AfterViewInit {
   }
 
   private closeVideoCall(): void {
+    console.log('Closing call');
     if(this.peerConnection){
+      console.log('--> Closing the peer connection');
       this.peerConnection.ontrack = null;
       this.peerConnection.onicecandidate = null;
       this.peerConnection.onicegatheringstatechange = null;
       this.peerConnection.onsignalingstatechange = null;
     }
+  // Stop all transceivers on the connection
+    // this.peerConnection.getTransceivers().forEach(transceiver => {
+    //   transceiver.stop();
+    // });
 
-    this.peerConnection.getTransceivers().forEach((transceiver: any) => {
-      transceiver.stop();
-    });
-
-    this.peerConnection.close();
+    //this.peerConnection.close();
     this.peerConnection = null;
-
+    this.inCall = false;
   }
 
-  private handleGetUserMediaError(e: Error){
+  private handleGetUserMediaError(e: Error): void{
     switch (e.name) {
       case 'NotFoundError':
         alert('unable to open your call because no camera and/or mic were found');
@@ -114,10 +128,10 @@ export class VideostrComponent implements OnInit, AfterViewInit {
           default:
             console.log(e);
             alert('Error opening your camera' + e.message)
+            break;
 
+    };
 
-    }
-    this.closeVideoCall();
   }
 
   private handleIceCandidateEvent = (event: RTCPeerConnectionIceEvent) => {
@@ -155,7 +169,7 @@ export class VideostrComponent implements OnInit, AfterViewInit {
     this.localRemote.nativeElement.srcObject = event.streams[0];
   }
 
-  private addIncommingMessageHandler() {
+  private addIncomingMessageHandler(): void {
     this.dataservice.connect();
 
     this.dataservice.messages$.subscribe(
@@ -168,7 +182,7 @@ export class VideostrComponent implements OnInit, AfterViewInit {
               this.handleAnswerMessage(msg.data);
               break;
               case 'hangup':
-                this.handleHangupMessage(msg.data);
+                this.handleHangupMessage(msg);
                 break;
                 case 'ice-candidate':
                   this.handleIceCandidateMessage(msg.data);
@@ -177,7 +191,8 @@ export class VideostrComponent implements OnInit, AfterViewInit {
                     console.log('unknown message of type' + msg.type);
         }
       },
-      error => console.log(error)
+
+      error => {console.log(error)}
     );
   }
 
@@ -189,11 +204,10 @@ export class VideostrComponent implements OnInit, AfterViewInit {
       this.startLocalStream();
     }
 
-    this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg))
-    .then(() => {
+    this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg)).then(() => {
       this.localVideo.nativeElement.srcObject = this.localStream;
       this.localStream.getTracks().forEach(
-        (track:any) => this.peerConnection.addTrack(track, this.localStream)
+        track => this.peerConnection.addTrack(track, this.localStream)
       );
     }).then(() => {
       return this.peerConnection.createAnswer();
@@ -201,23 +215,26 @@ export class VideostrComponent implements OnInit, AfterViewInit {
       return this.peerConnection.setLocalDescription(answer);
     }).then(() => {
       this.dataservice.sendMessage({type: 'answer', data: this.peerConnection.setLocalDescription});
+      this.inCall = true;
     }).catch(this.handleGetUserMediaError);
   }
 
-  private handleAnswerMessage(data:any): void {
-    this.peerConnection.setRemoteDescription(data);
+  private handleAnswerMessage(msg: RTCSessionDescriptionInit): void {
+    console.log('handle incoming answer');
+    this.peerConnection.setRemoteDescription(msg);
   }
 
   private handleHangupMessage(msg: Message): void {
     this.closeVideoCall();
   }
 
-  private handleIceCandidateMessage(data: any): void {
-    this.peerConnection.addIceCandidate(data).catch(this.reportError)
+  private handleIceCandidateMessage(msg: RTCIceCandidate): void {
+    const candidate = new RTCIceCandidate(msg);
+    this.peerConnection.addIceCandidate(candidate).catch(this.reportError)
   }
 
   private reportError = (e: Error) => {
-    console.log('got Errpr' + e.name);
+    console.log('got Error' + e.name);
     console.log(e);
   }
 

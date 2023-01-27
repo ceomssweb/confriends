@@ -1,13 +1,27 @@
-<video #videoRemote width="640" height="480" [autoplay] = "true" [muted]="false"></video>
+
 <div class="row">
   <div class="col-md-12">
-    <video #videoLocal width="640" height="480" [autoplay] = "true" [muted]="true"></video>
+    <div class="row">
+      <div class="col-md-6">
+        <video #videoRemote width="200" height="180" class="video-player" [autoplay] = "true" [muted]="true"></video>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-6">
+        <video #videoLocal width="200" height="180" class="video-player" [autoplay] = "true" [muted]="true"></video>
+      </div>
+    </div>
     <div class="row">
       <div class="col-md-12 m-2">
         <input type="button" class="btn btn-secondary" value="Pause" (click)="pauseLocalStream()">
         <input type="button" class="btn btn-secondary" value="Play" (click)="startLocalStream()">
         <input type="button" class="btn btn-secondary" value="Call" (click)="call()">
         <input type="button" class="btn btn-secondary" value="Hang UP" (click)="hangUp()">
+
+        <!-- <input type="button" class="btn btn-secondary" value="Pause" (click)="pauseLocalStream()" [disabled]="!localVideoActive">
+        <input type="button" class="btn btn-secondary" value="Play" (click)="startLocalStream()" [disabled]="localVideoActive">
+        <input type="button" class="btn btn-secondary" value="Call" (click)="call()" [disabled]="inCall || !localVideoActive">
+        <input type="button" class="btn btn-secondary" value="Hang UP" (click)="hangUp()" [disabled]="!inCall"> -->
       </div>
     </div>
   </div>
